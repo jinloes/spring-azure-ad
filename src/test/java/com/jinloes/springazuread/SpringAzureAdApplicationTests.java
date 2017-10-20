@@ -112,20 +112,34 @@ public class SpringAzureAdApplicationTests {
 		List<ActiveDirectoryUser> userList = authenticated.activeDirectoryUsers().list();
 		for (ActiveDirectoryUser user : userList) {
 			printUser(user, authenticated);
+			System.out.println();
 		}
 
+		System.out.println("\nCLASSIC ADMINS");
+		GraphRbacManager graphRbacManager = GraphRbacManager.configure().authenticate(tokenCredentials);
+		graphRbacManager.roleInner()
+				.withSubscriptionId(subscription)
+				.classicAdministrators().list("2015-06-01")
+				.forEach(admin -> {
+					System.out.println("ID " + admin.id()
+							+ " NAME " + admin.name()
+							+ " EMAIL " + admin.properties().emailAddress());
+				});
+
+		System.out.println();
 		ActiveDirectoryUser user = authenticated.activeDirectoryUsers().getByName("tom@igniteinc.net");
 		printUser(user, authenticated);
 
+		System.out.println("\nSubscriptions");
 		PagedList<Subscription> subscriptions = authenticated.subscriptions().list();
 		subscriptions.forEach(sub -> {
-			System.out.println(sub);
+			System.out.println("Name: " + sub.displayName() + " Sub: " + sub.subscriptionId());
 		});
 	}
 
 	private void printUser(ActiveDirectoryUser user, Azure.Authenticated authenticated) {
 		System.out.println(Joiner.on(" ").skipNulls()
-				.join(user.userPrincipalName(), user.signInName(), user.mail(), user.mailNickname(),
+				.join(user.userPrincipalName(), user.signInName(), "Email: " + user.mail(), user.mailNickname(),
 						user.name(), user.id()));
 	}
 
@@ -187,6 +201,7 @@ public class SpringAzureAdApplicationTests {
 		Azure.Authenticated authenticated = Azure.configure()
 				.authenticate(tokenCredentials);
 		Azure azure = authenticated.withSubscription(subscription);
+
 		authenticated.activeDirectoryGroups().list().forEach(group -> {
 			System.out.println("GROUP " + group.name() + " " + group.id());
 			try {
@@ -200,6 +215,16 @@ public class SpringAzureAdApplicationTests {
 			}
 		});
 		GraphRbacManager graphRbacManager = GraphRbacManager.configure().authenticate(tokenCredentials);
+		graphRbacManager.groups().inner().list().forEach(group -> {
+			System.out.println("Group name: " + group.displayName());
+			graphRbacManager.groups().inner().getGroupMembers(group.objectId()).forEach(groupMember -> {
+				System.out.println("User id: " + groupMember.objectId());
+				System.out.println("User name: " + groupMember.displayName());
+				System.out.println("User email: " + groupMember.mail());
+				System.out.println("User principal: " + groupMember.userPrincipalName());
+			});
+			System.out.println();
+		});
 		graphRbacManager.roleInner()
 				.withSubscriptionId(subscription)
 				.classicAdministrators().list("2015-06-01")
@@ -225,6 +250,7 @@ public class SpringAzureAdApplicationTests {
 				.forEach(roleAssignment -> {
 					String principalId = roleAssignment.principalId();
 					ActiveDirectoryUser user = authenticated.activeDirectoryUsers().getById(principalId);
+					System.out.println("ID: " + principalId);
 					if (user != null) {
 						System.out.println("ASSIGNMENT " + roleAssignment.principalId() + " " + user.name());
 						RoleDefinition roleDefinition = authenticated.roleDefinitions()
@@ -242,7 +268,6 @@ public class SpringAzureAdApplicationTests {
 									.getById(roleAssignment.roleDefinitionId());
 							System.out.println("GROUP " + group.name());
 							System.out.println("ROLE: " + roleDefinition.roleName());
-							System.out.println("ID: " + principalId);
 						}
 					}
 				});
